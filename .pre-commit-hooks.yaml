@@ -1,0 +1,13 @@
+# .pre-commit-hooks.yaml
+- id: coverage-update
+  name: Update coverage if needed
+  description: >-
+    Generate and compare coverage reports to
+    ensure coverage has not changed since the
+    last time the coverage file was updated.
+  entry: scripts/generate_and_compare_coverage.sh
+  language: python
+  additional_dependencies: ["coverage"]
+  pass_filenames: false
+  always_run: true
+  args: ["--coverage-dir", "path/to/coverage/dir"]
