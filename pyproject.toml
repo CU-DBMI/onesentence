@@ -17,8 +17,16 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-    "fire>=0.7.0",
-    "pysbd>=0.3.4",
+  "fire>=0.7",
+  "pysbd>=0.3.4",
+]
+
+scripts.sembr_check = "sembr_check.cli:trigger"
+
+[dependency-groups]
+dev = [
+  "coverage>=7.6.12",
+  "pytest>=8.3.5",
 ]
 
 [tool.setuptools_scm]
@@ -28,11 +36,3 @@ root = "."
 dev-dependencies = [
   "pre-commit>=4.0.0",
 ]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.3.5",
-]
-
-[project.scripts]
-sembr_check = "sembr_check.cli:trigger"

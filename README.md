@@ -1,4 +1,5 @@
 # pre-commit-semantic-line-breaks
+
 A [Pre-commit](https://pre-commit.com/) hook for [semantic line breaks](https://sembr.org/) (also called 'one sentence per line').
 
 ## Installation

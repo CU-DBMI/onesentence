@@ -34,6 +34,8 @@ def test_cli_check_simulated_file(tmp_path, file_content, expected_returncode):
 @pytest.mark.parametrize("file_path, expected_returncode", [
     ("tests/data/1_true_pos.md", 1),
     ("tests/data/2_true_neg.md", 0),
+    ("tests/data/3_true_pos.rst", 1),
+    ("tests/data/4_true_neg.rst", 0),
 ])
 def test_cli_check_file(tmp_path, file_path, expected_returncode):
     """

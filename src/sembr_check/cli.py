@@ -10,10 +10,10 @@ class SembrCheckCLI:
     def check(self, file_path: str) -> bool:
         """
         Check if each line in the given file contains only one sentence.
-        
+
         Args:
             file_path (str): The path to the file to check.
-            
+
         Returns:
             bool: True if all lines contain only one sentence, False otherwise.
         """

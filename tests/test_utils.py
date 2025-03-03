@@ -26,4 +26,3 @@ def test_check_file_for_single_sentences(tmp_path, file_content, expected):
     file_path = tmp_path / "test_file.txt"
     file_path.write_text(file_content)
     assert check_file_for_semantic_line_breaks(file_path) == expected
-
