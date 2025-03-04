@@ -3,7 +3,7 @@ Tests for onesentence.utils
 """
 
 import pytest
-from onesentence.utils import is_single_sentence, check_file_for_one_sentence_per_line
+from onesentence.utils import is_single_sentence, check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
 
 @pytest.mark.parametrize("line, expected", [
     ("This is a single sentence.", True),
@@ -28,3 +28,40 @@ def test_check_file_for_single_sentences(tmp_path, file_content, expected):
     file_path = tmp_path / "test_file.txt"
     file_path.write_text(file_content)
     assert check_file_for_one_sentence_per_line(file_path) == expected
+
+@pytest.mark.parametrize("file_content, expected_content, expected_returncode", [
+    (
+        "This is a single sentence.\nAnother single sentence.\n",
+        "This is a single sentence.\nAnother single sentence.\n",
+        True
+    ),
+    (
+        "This is the first sentence. This is the second sentence.\nAnother single sentence.\n",
+        "This is the first sentence.\nThis is the second sentence.\nAnother single sentence.\n",
+        False
+    ),
+    (
+        "This is the first sentence. This is the second sentence. <!-- noqa: onesentence -->\nAnother single sentence.\n",
+        "This is the first sentence. This is the second sentence. <!-- noqa: onesentence -->\nAnother single sentence.\n",
+        True
+    ),
+    (
+        "<!-- noqa: onesentence-start -->\nThis is the first sentence. This is the second sentence.\n<!-- noqa: onesentence-end -->\nAnother single sentence.\n",
+        "<!-- noqa: onesentence-start -->\nThis is the first sentence. This is the second sentence.\n<!-- noqa: onesentence-end -->\nAnother single sentence.\n",
+        True
+    ),
+])
+def test_correct_file_for_one_sentence_per_line(tmp_path, file_content, expected_content, expected_returncode):
+    """
+    Test the correct_file_for_one_sentence_per_line function for different file contents.
+    """
+    file_path = tmp_path / "test_file.md"
+    file_path.write_text(file_content)
+
+    result = correct_file_for_one_sentence_per_line(file_path)
+
+    corrected_content = file_path.read_text()
+    print(corrected_content)
+    print(expected_content)
+    assert corrected_content == expected_content
+    assert result == expected_returncode
