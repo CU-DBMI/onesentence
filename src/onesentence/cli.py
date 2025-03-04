@@ -4,7 +4,7 @@ CLI for onesentence
 
 import fire
 import sys
-from onesentence.utils import check_file_for_semantic_line_breaks
+from onesentence.utils import check_file_for_one_sentence_per_line
 
 class OneSentenceCheckCLI:
     def check(self, file_path: str) -> bool:
@@ -17,7 +17,7 @@ class OneSentenceCheckCLI:
         Returns:
             bool: True if all lines contain only one sentence, False otherwise.
         """
-        result = check_file_for_semantic_line_breaks(file_path)
+        result = check_file_for_one_sentence_per_line(file_path)
         if result:
             sys.exit(0)
         else:
@@ -28,14 +28,3 @@ def trigger():
     Trigger the CLI to run.
     """
     fire.Fire(OneSentenceCheckCLI)
-
-
-if __name__ == "__main__":
-    """
-    Setup the CLI with python-fire for the onesentence package.
-
-    This allows the function `check` to be ran through the
-    command line interface.
-    """
-
-    trigger()
