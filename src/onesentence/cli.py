@@ -4,6 +4,7 @@ CLI for onesentence
 
 import fire
 import sys
+from typing import Optional
 from onesentence.utils import check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
 
 class OneSentenceCheckCLI:
@@ -17,12 +18,12 @@ class OneSentenceCheckCLI:
         Returns:
             bool: True if all lines contain only one sentence, False otherwise.
         """
-        result = check_file_for_one_sentence_per_line(file_path)
+        result = check_file_for_one_sentence_per_line(file_path= file_path)
         if result:
             sys.exit(0)
         else:
             sys.exit(1)
-    def fix(self, file_path: str) -> bool:
+    def fix(self, file_path: str, dest_path: Optional[str]=None) -> bool:
         """
         Fix each line in the given file contains more than one sentence.
 
@@ -32,7 +33,7 @@ class OneSentenceCheckCLI:
         Returns:
             bool: True if all lines contain only one sentence, False otherwise.
         """
-        result = correct_file_for_one_sentence_per_line(file_path)
+        result = correct_file_for_one_sentence_per_line(file_path=file_path, dest_path=dest_path)
         if result:
             sys.exit(0)
         else:

@@ -4,6 +4,7 @@ Module for checking semantic line breaks and related.
 
 import pysbd
 import re
+from typing import Optional
 
 def is_single_sentence(line: str, ignore_block: bool) -> bool:
     """
@@ -72,13 +73,18 @@ def check_file_for_one_sentence_per_line(file_path: str) -> bool:
                 all_single_sentences = False
     return all_single_sentences
 
-def correct_file_for_one_sentence_per_line(file_path: str) -> bool:
+def correct_file_for_one_sentence_per_line(file_path: str, dest_path: Optional[str] = None) -> bool:
     """
     Check if each line in the given file contains only one sentence.
     If not, correct the file by replacing the contents with correctly segmented sentences.
 
     Args:
-        file_path (str): The path to the file to check.
+        file_path (str):
+            The path to the file to check.
+        dest_path (str):
+            The path to write the file to.
+            If not provided, the original file will be overwritten.
+
 
     Returns:
         bool: True if all lines contain only one sentence, False otherwise.
@@ -104,14 +110,23 @@ def correct_file_for_one_sentence_per_line(file_path: str) -> bool:
                 all_single_sentences = False
                 if not ignore_block:
                     sentences = segmenter.segment(line.strip())
+                    # Detect and move lines with only Markdown characters to the end of the second-to-last line
+                    if sentences and re.match(r'^[=\-~`#\*]+$', sentences[-1]):
+                        markdown_line = sentences.pop()
+                        if sentences:
+                            sentences[-1] += markdown_line
                     corrected_lines.extend([sentence.strip() for sentence in sentences])
                 else:
                     corrected_lines.append(line.strip())
             else:
                 corrected_lines.append(line.strip())
 
+    # If we have no dest path provided, we will overwrite the original file
+    if dest_path is None:
+        dest_path = file_path
+
     # Write the corrected content back to the file
-    with open(file_path, 'w') as file:
+    with open(dest_path, 'w') as file:
         for corrected_line in corrected_lines:
             file.write(corrected_line + '\n')
 

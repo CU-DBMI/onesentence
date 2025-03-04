@@ -39,7 +39,24 @@ def test_cli_check_simulated_file(tmp_path, file_content, expected_returncode):
 ])
 def test_cli_check_file(tmp_path, file_path, expected_returncode):
     """
-    Test the onesentence CLI for different file contents.
+    Test the onesentence CLI for checking different file contents.
+    """
+
+    stdout, stderr, returncode = run_cli_command(["onesentence", "check", str(file_path)])
+
+    print(stdout)
+    print(stderr)
+    assert returncode == expected_returncode
+
+@pytest.mark.parametrize("file_path, fixed_path, expected_returncode", [
+    ("tests/data/1_true_pos.md", "tests/data/1_true_pos_fixed.md",  1),
+    ("tests/data/2_true_neg.md", None, 0),
+    ("tests/data/3_true_pos.rst", "tests/data/3_true_pos_fixed.rst", 1),
+    ("tests/data/4_true_neg.rst", None, 0),
+])
+def test_cli_fix_file(tmp_path, file_path, fixed_path, expected_returncode):
+    """
+    Test the onesentence CLI for fixing different file contents.
     """
 
     stdout, stderr, returncode = run_cli_command(["onesentence", "check", str(file_path)])
