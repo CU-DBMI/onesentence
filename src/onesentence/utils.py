@@ -71,4 +71,3 @@ def check_file_for_one_sentence_per_line(file_path: str) -> bool:
                 print(f"Failed: line {line_number}: {line.strip()}")
                 all_single_sentences = False
     return all_single_sentences
-

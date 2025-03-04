@@ -19,7 +19,9 @@ This is the first sentence under a subheading.
 This is the second sentence under a subheading. And another sentence we should ignore. <!-- noqa: onesentence -->
 
 <!-- noqa: onesentence-start -->
+
 This is the second sentence under a subheading. And another sentence we should ignore. This is the second sentence under a subheading. And another sentence we should ignore.
+
 <!-- noqa: onesentence-end -->
 
 - This is a single sentence in a list item.
