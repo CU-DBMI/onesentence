@@ -1,12 +1,12 @@
 """
-CLI for sembr_check
+CLI for onesentence
 """
 
 import fire
 import sys
-from sembr_check.utils import check_file_for_semantic_line_breaks
+from onesentence.utils import check_file_for_semantic_line_breaks
 
-class SembrCheckCLI:
+class OneSentenceCheckCLI:
     def check(self, file_path: str) -> bool:
         """
         Check if each line in the given file contains only one sentence.
@@ -27,12 +27,12 @@ def trigger():
     """
     Trigger the CLI to run.
     """
-    fire.Fire(SembrCheckCLI)
+    fire.Fire(OneSentenceCheckCLI)
 
 
 if __name__ == "__main__":
     """
-    Setup the CLI with python-fire for the sembr_check package.
+    Setup the CLI with python-fire for the onesentence package.
 
     This allows the function `check` to be ran through the
     command line interface.

@@ -1,5 +1,5 @@
 """
-Tests for sembr_check.cli
+Tests for onesentence.cli
 """
 
 import pytest
@@ -22,12 +22,12 @@ def test_cli_util():
 ])
 def test_cli_check_simulated_file(tmp_path, file_content, expected_returncode):
     """
-    Test the sembr_check CLI for different file contents.
+    Test the onesentence CLI for different file contents.
     """
     file_path = tmp_path / "test_file.md"
     file_path.write_text(file_content)
 
-    stdout, stderr, returncode = run_cli_command(["sembr_check", "check", str(file_path)])
+    stdout, stderr, returncode = run_cli_command(["onesentence", "check", str(file_path)])
 
     assert returncode == expected_returncode
 
@@ -39,10 +39,10 @@ def test_cli_check_simulated_file(tmp_path, file_content, expected_returncode):
 ])
 def test_cli_check_file(tmp_path, file_path, expected_returncode):
     """
-    Test the sembr_check CLI for different file contents.
+    Test the onesentence CLI for different file contents.
     """
 
-    stdout, stderr, returncode = run_cli_command(["sembr_check", "check", str(file_path)])
+    stdout, stderr, returncode = run_cli_command(["onesentence", "check", str(file_path)])
 
     print(stdout)
     print(stderr)

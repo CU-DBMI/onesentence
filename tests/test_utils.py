@@ -1,9 +1,9 @@
 """
-Tests for sembr_check.utils
+Tests for onesentence.utils
 """
 
 import pytest
-from sembr_check.utils import is_single_sentence, check_file_for_semantic_line_breaks
+from onesentence.utils import is_single_sentence, check_file_for_semantic_line_breaks
 
 @pytest.mark.parametrize("line, expected", [
     ("This is a single sentence.", True),

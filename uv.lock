@@ -196,8 +196,8 @@ wheels = [
 ]
 
 [[package]]
-name = "pre-commit-semantic-line-breaks"
-version = "0.1.dev2+g5b3111a.d20250303"
+name = "pre-commit-one-sentence"
+version = "0.1.dev4+g12ae13b.d20250304"
 source = { editable = "." }
 dependencies = [
     { name = "fire" },
