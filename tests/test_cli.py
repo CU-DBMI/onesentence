@@ -27,7 +27,7 @@ def test_cli_check_simulated_file(tmp_path, file_content, expected_returncode):
     file_path = tmp_path / "test_file.md"
     file_path.write_text(file_content)
 
-    stdout, stderr, returncode = run_cli_command(["onesentence", "check", str(file_path)])
+    _, _, returncode = run_cli_command(["onesentence", "check", str(file_path)])
 
     assert returncode == expected_returncode
 
@@ -42,10 +42,8 @@ def test_cli_check_file(tmp_path, file_path, expected_returncode):
     Test the onesentence CLI for checking different file contents.
     """
 
-    stdout, stderr, returncode = run_cli_command(["onesentence", "check", str(file_path)])
+    _, _, returncode = run_cli_command(["onesentence", "check", str(file_path)])
 
-    print(stdout)
-    print(stderr)
     assert returncode == expected_returncode
 
 @pytest.mark.parametrize("file_path, fixed_path, expected_returncode", [
@@ -59,8 +57,19 @@ def test_cli_fix_file(tmp_path, file_path, fixed_path, expected_returncode):
     Test the onesentence CLI for fixing different file contents.
     """
 
-    stdout, stderr, returncode = run_cli_command(["onesentence", "check", str(file_path)])
+    dest_path = tmp_path / "test_file.md"
+    _, _, returncode = run_cli_command(["onesentence", "fix", str(file_path), str(dest_path)])
 
-    print(stdout)
-    print(stderr)
     assert returncode == expected_returncode
+
+    with open(dest_path, 'r') as file:
+        dest_content = file.read()
+    
+    if fixed_path is not None:
+        with open(fixed_path, 'r') as file:
+            comparison_dest_content = file.read()
+    else:
+        with open(file_path, 'r') as file:
+            comparison_dest_content = file.read()
+
+    assert dest_content == comparison_dest_content
