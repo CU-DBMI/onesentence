@@ -85,7 +85,6 @@ def correct_file_for_one_sentence_per_line(file_path: str, dest_path: Optional[s
             The path to write the file to.
             If not provided, the original file will be overwritten.
 
-
     Returns:
         bool: True if all lines contain only one sentence, False otherwise.
     """
@@ -97,29 +96,32 @@ def correct_file_for_one_sentence_per_line(file_path: str, dest_path: Optional[s
 
     with open(file_path, 'r') as file:
         for line_number, line in enumerate(file, start=1):
-            if "noqa: onesentence-start" in line:
+            original_indent = re.match(r'^\s*', line).group()  # Capture the original indentation
+            stripped_line = line.strip()
+
+            if "noqa: onesentence-start" in stripped_line:
                 ignore_block = True
-                corrected_lines.append(line.strip())
+                corrected_lines.append(line.rstrip())
                 continue
-            if "noqa: onesentence-end" in line:
+            if "noqa: onesentence-end" in stripped_line:
                 ignore_block = False
-                corrected_lines.append(line.strip())
+                corrected_lines.append(line.rstrip())
                 continue
-            if not is_single_sentence(line.strip(), ignore_block):
-                print(f"Failed: line {line_number}: {line.strip()}")
+            if not is_single_sentence(stripped_line, ignore_block):
+                print(f"Failed: line {line_number}: {stripped_line}")
                 all_single_sentences = False
                 if not ignore_block:
-                    sentences = segmenter.segment(line.strip())
+                    sentences = segmenter.segment(stripped_line)
                     # Detect and move lines with only Markdown characters to the end of the second-to-last line
                     if sentences and re.match(r'^[=\-~`#\*]+$', sentences[-1]):
                         markdown_line = sentences.pop()
                         if sentences:
                             sentences[-1] += markdown_line
-                    corrected_lines.extend([sentence.strip() for sentence in sentences])
+                    corrected_lines.extend([original_indent + sentence.strip() for sentence in sentences])
                 else:
-                    corrected_lines.append(line.strip())
+                    corrected_lines.append(line.rstrip())
             else:
-                corrected_lines.append(line.strip())
+                corrected_lines.append(line.rstrip())
 
     # If we have no dest path provided, we will overwrite the original file
     if dest_path is None:
