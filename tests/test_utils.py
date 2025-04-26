@@ -3,7 +3,7 @@ Tests for onesentence.utils
 """
 
 import pytest
-from onesentence.utils import is_single_sentence, check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
+from onesentence.analyze import is_single_sentence, check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
 
 @pytest.mark.parametrize("line, expected", [
     ("This is a single sentence.", True),

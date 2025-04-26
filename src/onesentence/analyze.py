@@ -1,5 +1,5 @@
 """
-Module for checking semantic line breaks and related.
+Module for checking for one sentence per line and related.
 """
 
 import pysbd

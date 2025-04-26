@@ -5,7 +5,7 @@ CLI for onesentence
 import fire
 import sys
 from typing import Optional
-from onesentence.utils import check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
+from onesentence.analyze import check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
 
 class OneSentenceCheckCLI:
     def check(self, file_path: str) -> bool:
