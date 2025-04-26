@@ -25,6 +25,11 @@ jobs:
       # run pre-commit ci lite for automated fixes
       - uses: pre-commit-ci/lite-action@v1.1.0
         if: ${{ !cancelled() }}
+      # Test that the hooks from `pre-commit-hooks.yaml`
+      # are working as expected.
+      - name: run local hook
+        run: |
+          pre-commit try-repo . --all
   run_tests:
     strategy:
       matrix:
