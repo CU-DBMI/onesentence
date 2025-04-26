@@ -64,7 +64,7 @@ def test_cli_fix_file(tmp_path, file_path, fixed_path, expected_returncode):
 
     with open(dest_path, 'r') as file:
         dest_content = file.read()
-    
+
     if fixed_path is not None:
         with open(fixed_path, 'r') as file:
             comparison_dest_content = file.read()
