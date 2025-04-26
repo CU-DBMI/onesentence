@@ -31,8 +31,11 @@ Install this pre-commit hook into your project with a block like the following:
 
 ```yaml
 repos:
-  - repo: https://github.com/d33bs/pre-commit-one-sentence
+  - repo: https://github.com/CU-DBMI/onesentence
     rev: v0.0.1
     hooks:
-        - id: onesentence-check
+        # run checks
+        - id: check
+        # run checks and fixes where possible
+        - id: fix
 ```

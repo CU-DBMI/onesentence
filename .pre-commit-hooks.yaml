@@ -1,13 +1,16 @@
-# .pre-commit-hooks.yaml
-- id: coverage-update
-  name: Update coverage if needed
-  description: >-
-    Generate and compare coverage reports to
-    ensure coverage has not changed since the
-    last time the coverage file was updated.
-  entry: scripts/generate_and_compare_coverage.sh
+# hooks for pre-commit
+- id: check
+  name: One Sentence Per Line Check
+  description: Check if each line in the given file contains only one sentence.
+  entry: onesentence check
   language: python
-  additional_dependencies: ["coverage"]
-  pass_filenames: false
-  always_run: true
-  args: ["--coverage-dir", "path/to/coverage/dir"]
+  types: [text, markdown, rst]
+  files: \.(md|rst)$
+
+- id: fix
+  name: One Sentence Per Line Fix
+  description: Fix files to ensure each line contains only one sentence.
+  entry: onesentence fix
+  language: python
+  types: [text, markdown, rst]
+  files: \.(md|rst)$
