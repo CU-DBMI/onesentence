@@ -3,7 +3,7 @@ build-backend = "setuptools.build_meta"
 requires = [ "setuptools>=64", "setuptools-scm>=8" ]
 
 [project]
-name = "pre-commit-one-sentence"
+name = "onesentence"
 description = "A Pre-commit hook for 'one sentence per line' documentation practices."
 readme = "README.md"
 requires-python = ">=3.9"
