@@ -1,0 +1,38 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [ "setuptools>=64", "setuptools-scm>=8" ]
+
+[project]
+name = "pre-commit-one-sentence"
+description = "A Pre-commit hook for 'one sentence per line' documentation practices."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dynamic = [ "version" ]
+dependencies = [
+  "fire>=0.7",
+  "pysbd>=0.3.4",
+]
+
+scripts.onesentence = "onesentence.cli:trigger"
+
+[dependency-groups]
+dev = [
+  "coverage>=7.6.12",
+  "pytest>=8.3.5",
+]
+
+[tool.setuptools_scm]
+root = "."
+
+[tool.uv]
+dev-dependencies = [
+  "pre-commit>=4.0.0",
+]
