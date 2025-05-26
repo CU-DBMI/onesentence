@@ -20,7 +20,6 @@ dependencies = [
   "fire>=0.7",
   "pysbd>=0.3.4",
 ]
-
 scripts.onesentence = "onesentence.cli:trigger"
 
 [dependency-groups]
