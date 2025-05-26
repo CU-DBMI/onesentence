@@ -7,6 +7,11 @@
 
 A [Pre-commit](https://pre-commit.com/) hook for checking 'one sentence per line' documentation practices.
 
+One sentence per line is a practice where developers use only one line per sentence.
+This can make it easier to review or provide comments on in version control systems like `git`.
+That said, it can sometimes be difficult to remember or "debug" this style preference.
+We provide this linting tool to assist with finding and fixing areas of content where the style preference is one sentence per line.
+
 ## Usage
 
 The `onesentence` tool provides a command-line interface for checking and fixing files to ensure they follow the "one sentence per line" rule.
