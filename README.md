@@ -4,6 +4,7 @@
 ![Coverage Status](https://raw.githubusercontent.com/cu-dbmi/onesentence/main/docs/src/_static/coverage-badge.svg)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Software DOI badge](https://zenodo.org/badge/DOI/10.5281/zenodo.15521186.svg)](https://doi.org/10.5281/zenodo.15521186)
 
 A [Pre-commit](https://pre-commit.com/) hook for checking 'one sentence per line' documentation practices.
 
