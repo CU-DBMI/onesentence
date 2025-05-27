@@ -22,3 +22,6 @@ keywords:
   - formatter
   - linting
 license: BSD-3-Clause
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.15521186"
