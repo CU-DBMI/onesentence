@@ -23,7 +23,7 @@ Also reference the [pre-commit hook](#pre-commit-hook) instructions for use thro
 pip install onesentence
 
 # install directly from source
-pip install git+https://github.com/cytomining/CytoTable.git
+pip install git+https://github.com/CU-DBMI/onesentence.git
 ```
 
 ## Usage
