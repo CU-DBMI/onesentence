@@ -14,6 +14,10 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every week
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # Perform checks and updates for python poetry environment.
   # See here for more information:
@@ -23,3 +27,7 @@ updates:
     schedule:
       # Check for updates to poetry lockfile every week
       interval: "monthly"
+    groups:
+    python-packages:
+      patterns:
+        - "*"
