@@ -22,11 +22,11 @@ repos:
         args: ["--keep", "mdformat", "--keep", "pre-commit-update"]
 
 -   repo: https://github.com/tox-dev/pyproject-fmt
-    rev: "v2.12.1"
+    rev: "v2.19.0"
     hooks:
     -   id: pyproject-fmt
 -   repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.2
     hooks:
     -   id: codespell
         exclude: |
@@ -41,7 +41,7 @@ repos:
         -   mdformat-gfm
         exclude: ^tests/data/
 -   repo: https://github.com/rhysd/actionlint
-    rev: v1.7.10
+    rev: v1.7.11
     hooks:
     -   id: actionlint
 -   repo: local
