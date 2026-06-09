@@ -12,6 +12,14 @@ from onesentence.analyze import is_single_sentence, check_file_for_one_sentence_
     ("Sentence one. Sentence two. Sentence three.", False),
     ("Sentence one. Sentence two. Sentence three. <!-- noqa: onesentence -->", True),
     ("", True),  # Empty line should be considered as a single sentence
+    ("Use `file.txt` to store data.", True),
+    ("Call `os.path.join()` to combine paths.", True),
+    ("The value of `foo.bar.baz` is used here.", True),
+    ("The pattern `Hello. World` matches two words.", True),
+    ("Run `echo hello. world` in your shell.", True),
+    ("The string `foo. Bar baz` is invalid.", True),
+    ("> This is a blockquote. It has two sentences.", True),
+    ("  continuation of a list item. With two sentences.", True),
 ])
 def test_is_single_sentence(line, expected):
     assert is_single_sentence(line, ignore_block=False) == expected
@@ -48,6 +56,11 @@ def test_check_file_for_single_sentences(tmp_path, file_content, expected):
     (
         "<!-- noqa: onesentence-start -->\nThis is the first sentence. This is the second sentence.\n<!-- noqa: onesentence-end -->\nAnother single sentence.\n",
         "<!-- noqa: onesentence-start -->\nThis is the first sentence. This is the second sentence.\n<!-- noqa: onesentence-end -->\nAnother single sentence.\n",
+        True
+    ),
+    (
+        "Some text.\n```\nThis is the first sentence. This is the second sentence.\n```\nAnother single sentence.\n",
+        "Some text.\n```\nThis is the first sentence. This is the second sentence.\n```\nAnother single sentence.\n",
         True
     ),
 ])

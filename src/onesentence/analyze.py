@@ -30,16 +30,26 @@ def is_single_sentence(line: str, ignore_block: bool) -> bool:
         return True
 
     # Additional filtering for common reST and Markdown formatting
-    if re.match(r'^[=\-~`#\*]+$', line):
+    if re.match(r'^[=\-~`#\*]+$', line.strip()):
         return True
-    if re.match(r'^\.\.\s+\w+::', line):
+    if re.match(r'^\.\.\s+\w+::', line.strip()):
         return True
 
-    # Allow multiple sentences in list items (Markdown, reST, AsciiDoc)
+    # Allow multiple sentences in list items, their continuations, and blockquotes
     if re.match(r'^\s*[-*+]\s+', line):  # Unordered list item
         return True
     if re.match(r'^\s*\d+\.\s+', line):  # Ordered list item
         return True
+    if re.match(r'^\s+\S', line):  # Indented continuation of a list item
+        return True
+    if re.match(r'^>\s*', line):  # Blockquote
+        return True
+
+    line = line.strip()
+
+    # Mask inline code spans so their content doesn't trigger false sentence breaks
+    # Double backticks (reST) must be matched before single backticks (Markdown)
+    line = re.sub(r'``[^`]*``|`[^`]*`', 'INLINECODE', line)
 
     # Remove special characters that do not pertain to sentence structure
     line = re.sub(r'[^a-zA-Z0-9\s.,!?\'"()\-]', '', line)
@@ -60,15 +70,19 @@ def check_file_for_one_sentence_per_line(file_path: str) -> bool:
     """
     all_single_sentences = True
     ignore_block = False
+    in_code_block = False
     with open(file_path, 'r') as file:
         for line_number, line in enumerate(file, start=1):
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+                continue
             if "noqa: onesentence-start" in line:
                 ignore_block = True
                 continue
             if "noqa: onesentence-end" in line:
                 ignore_block = False
                 continue
-            if not is_single_sentence(line.strip(), ignore_block):
+            if not is_single_sentence(line.rstrip('\n'), ignore_block or in_code_block):
                 print(f"Failed: line {line_number}: {line.strip()}")
                 all_single_sentences = False
     return all_single_sentences
@@ -90,6 +104,7 @@ def correct_file_for_one_sentence_per_line(file_path: str, dest_path: Optional[s
     """
     all_single_sentences = True
     ignore_block = False
+    in_code_block = False
     corrected_lines = []
 
     segmenter = pysbd.Segmenter(language="en", clean=False)
@@ -99,6 +114,10 @@ def correct_file_for_one_sentence_per_line(file_path: str, dest_path: Optional[s
             original_indent = re.match(r'^\s*', line).group()  # Capture the original indentation
             stripped_line = line.strip()
 
+            if stripped_line.startswith('```'):
+                in_code_block = not in_code_block
+                corrected_lines.append(line.rstrip())
+                continue
             if "noqa: onesentence-start" in stripped_line:
                 ignore_block = True
                 corrected_lines.append(line.rstrip())
@@ -107,7 +126,7 @@ def correct_file_for_one_sentence_per_line(file_path: str, dest_path: Optional[s
                 ignore_block = False
                 corrected_lines.append(line.rstrip())
                 continue
-            if not is_single_sentence(stripped_line, ignore_block):
+            if not is_single_sentence(line.rstrip('\n'), ignore_block or in_code_block):
                 print(f"Failed: line {line_number}: {stripped_line}")
                 all_single_sentences = False
                 if not ignore_block:
