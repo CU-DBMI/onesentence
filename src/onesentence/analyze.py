@@ -48,7 +48,8 @@ def is_single_sentence(line: str, ignore_block: bool) -> bool:
     line = line.strip()
 
     # Mask inline code spans so their content doesn't trigger false sentence breaks
-    line = re.sub(r'`[^`]*`', 'INLINECODE', line)
+    # Double backticks (reST) must be matched before single backticks (Markdown)
+    line = re.sub(r'``[^`]*``|`[^`]*`', 'INLINECODE', line)
 
     # Remove special characters that do not pertain to sentence structure
     line = re.sub(r'[^a-zA-Z0-9\s.,!?\'"()\-]', '', line)
