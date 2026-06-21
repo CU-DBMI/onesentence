@@ -42,6 +42,12 @@ _BARE_URL_RE = re.compile(
 # sentence structure.
 _NON_SENTENCE_CHARS_RE = re.compile(r"[^a-zA-Z0-9\s.,!?\'\"()\-]")
 
+# Emphasis markers; neutralized (kept same length) before segmenting a paragraph
+# so a period adjacent to one (e.g. "word.**") is still seen as a boundary.
+_EMPHASIS_RE = re.compile(r"[*_~]")
+# Trailing characters stripped when deciding whether a line ends a sentence.
+_CLOSING_MARKERS = "*_`\"')]}>"
+
 
 def _is_structural_line(stripped: str) -> bool:
     """
@@ -164,12 +170,143 @@ def check_file_for_one_sentence_per_line(file_path: str) -> bool:
     return all_single_sentences
 
 
+def _mask_for_segmentation(text: str) -> str:
+    """
+    Neutralize inline constructs while preserving length and offsets.
+
+    Inline code, links, and URLs become equal-length runs of a word character
+    so their internal punctuation is never read as a sentence boundary, and
+    emphasis markers are replaced so a period adjacent to one (``word.**``) is
+    still a boundary. Because every substitution keeps the original length, the
+    masked text aligns character-for-character with ``text``.
+
+    Args:
+        text (str): The text to mask.
+
+    Returns:
+        str: The masked text, the same length as the input.
+    """
+
+    def _same_length(match: "re.Match") -> str:
+        return "x" * (match.end() - match.start())
+
+    for regex in (
+        _INLINE_CODE_RE,
+        _INLINE_LINK_RE,
+        _REFERENCE_LINK_RE,
+        _AUTOLINK_RE,
+        _BARE_URL_RE,
+    ):
+        text = regex.sub(_same_length, text)
+    return _EMPHASIS_RE.sub("x", text)
+
+
+def _segment_markdown(text: str) -> List[str]:
+    """
+    Split a block of Markdown/reST prose into sentences, preserving markup.
+
+    Segmentation runs on a length-preserving masked copy (see
+    :func:`_mask_for_segmentation`) so links, code, and emphasis never cause a
+    spurious split; the resulting spans are then sliced out of the original
+    ``text`` so the raw markup is kept verbatim.
+
+    Args:
+        text (str): The (already joined) prose to segment.
+
+    Returns:
+        list[str]: The sentences, each stripped of surrounding whitespace.
+    """
+    masked = _mask_for_segmentation(text)
+    sentences: List[str] = []
+    position = 0
+    for masked_sentence in _SEGMENTER.segment(masked):
+        length = len(masked_sentence)
+        raw = text[position : position + length].strip()
+        position += length
+        if raw:
+            sentences.append(raw)
+    # Guard against any character the segmenter did not account for.
+    remainder = text[position:].strip()
+    if remainder:
+        sentences.append(remainder)
+    return sentences or [text.strip()]
+
+
+def _line_ends_sentence(line: str) -> bool:
+    """Return True if a physical line ends at a sentence boundary."""
+    trimmed = line.rstrip().rstrip(_CLOSING_MARKERS).rstrip()
+    return trimmed.endswith((".", "!", "?"))
+
+
+def _line_has_hard_break(line: str) -> bool:
+    """Return True if a line carries an intentional Markdown hard line break."""
+    if line.rstrip().endswith("\\"):
+        return True
+    return bool(line.strip()) and (len(line) - len(line.rstrip(" "))) >= 2
+
+
+def _is_non_prose_line(line: str) -> bool:
+    """
+    Return True for lines that must be preserved rather than reflowed.
+
+    This covers headings, horizontal rules, link reference definitions, tables,
+    reST directives, list items and their indented continuations, blockquotes,
+    and block-level HTML.
+    """
+    stripped = line.strip()
+    if not stripped:
+        return False
+    return bool(
+        _is_structural_line(stripped)
+        or re.match(r"^\s*[-*+]\s+", line)  # unordered list item
+        or re.match(r"^\s*\d+\.\s+", line)  # ordered list item
+        or re.match(r"^\s+\S", line)  # indented continuation / indented code
+        or re.match(r"^>\s*", line)  # blockquote
+        or stripped.startswith("<")  # block-level HTML
+    )
+
+
+def _reflow_paragraph(lines: List[str]) -> List[str]:
+    """
+    Normalize one prose paragraph to a single complete sentence per line.
+
+    Soft-wrapped lines (those that do not already end a sentence) are joined
+    before segmenting, so a sentence split across several wrapped lines is
+    rejoined and re-split cleanly. Paragraphs containing an intentional hard
+    break are left untouched.
+
+    Args:
+        lines (list[str]): The raw lines making up the paragraph.
+
+    Returns:
+        list[str]: The reflowed lines.
+    """
+    if any(_line_has_hard_break(line) for line in lines):
+        return list(lines)
+
+    reflowed: List[str] = []
+    buffer: List[str] = []
+    for line in lines:
+        buffer.append(line.strip())
+        # A line that ends a sentence closes the current soft-wrapped run.
+        if _line_ends_sentence(line):
+            reflowed.extend(_segment_markdown(" ".join(buffer)))
+            buffer = []
+    if buffer:
+        reflowed.extend(_segment_markdown(" ".join(buffer)))
+    return reflowed
+
+
 def correct_file_for_one_sentence_per_line(
     file_path: str, dest_path: Optional[str] = None
 ) -> bool:
     """
-    Check if each line in the given file contains only one sentence.
-    If not, correct the file by replacing the contents with correctly segmented sentences.
+    Normalize a file so each prose sentence sits on its own line.
+
+    Prose paragraphs are reflowed by joining Markdown soft-wrapped lines,
+    segmenting the paragraph into sentences, and writing exactly one complete
+    sentence per line. Intentional hard breaks, lists, blockquotes, headings,
+    code blocks, tables, HTML, and ``noqa`` regions are preserved unchanged.
 
     Args:
         file_path (str):
@@ -179,57 +316,75 @@ def correct_file_for_one_sentence_per_line(
             If not provided, the original file will be overwritten.
 
     Returns:
-        bool: True if all lines contain only one sentence, False otherwise.
+        bool: True if the file was already compliant (no changes were needed),
+        False otherwise.
     """
-    all_single_sentences = True
-    ignore_block = False
-    in_code_block = False
-    corrected_lines: List[str] = []
-
     with open(file_path, "r") as file:
-        for line_number, line in enumerate(file, start=1):
-            original_indent = re.match(
-                r"^\s*", line
-            ).group()  # Capture the original indentation
-            stripped_line = line.strip()
+        original = file.read()
 
-            if stripped_line.startswith("```"):
-                in_code_block = not in_code_block
-                corrected_lines.append(line.rstrip())
-                continue
-            if "noqa: onesentence-start" in stripped_line:
-                ignore_block = True
-                corrected_lines.append(line.rstrip())
-                continue
-            if "noqa: onesentence-end" in stripped_line:
+    raw_lines = original.split("\n")
+    # ``split`` leaves a trailing "" for a final newline; track and re-add it.
+    trailing_newline = bool(raw_lines) and raw_lines[-1] == ""
+    if trailing_newline:
+        raw_lines.pop()
+
+    output: List[str] = []
+    paragraph: List[str] = []
+    in_code_block = False
+    ignore_block = False
+
+    def flush_paragraph() -> None:
+        if paragraph:
+            output.extend(_reflow_paragraph(paragraph))
+            paragraph.clear()
+
+    for line in raw_lines:
+        stripped = line.strip()
+        is_fence = stripped.startswith("```") or stripped.startswith("~~~")
+
+        if in_code_block:
+            output.append(line.rstrip())
+            if is_fence:
+                in_code_block = False
+            continue
+        if is_fence:
+            flush_paragraph()
+            in_code_block = True
+            output.append(line.rstrip())
+            continue
+        if ignore_block:
+            output.append(line.rstrip())
+            if "noqa: onesentence-end" in line:
                 ignore_block = False
-                corrected_lines.append(line.rstrip())
-                continue
-            if not is_single_sentence(line.rstrip("\n"), ignore_block or in_code_block):
-                print(f"Failed: line {line_number}: {stripped_line}")
-                all_single_sentences = False
-                if not ignore_block:
-                    sentences = _SEGMENTER.segment(stripped_line)
-                    # Detect and move lines with only Markdown characters to the end of the second-to-last line
-                    if sentences and re.match(r"^[=\-~`#\*]+$", sentences[-1]):
-                        markdown_line = sentences.pop()
-                        if sentences:
-                            sentences[-1] += markdown_line
-                    corrected_lines.extend(
-                        [original_indent + sentence.strip() for sentence in sentences]
-                    )
-                else:
-                    corrected_lines.append(line.rstrip())
-            else:
-                corrected_lines.append(line.rstrip())
+            continue
+        if "noqa: onesentence-start" in line:
+            flush_paragraph()
+            ignore_block = True
+            output.append(line.rstrip())
+            continue
+        if "noqa: onesentence-end" in line:
+            flush_paragraph()
+            output.append(line.rstrip())
+            continue
+        if stripped == "":
+            flush_paragraph()
+            output.append("")
+            continue
+        # Lines exempted inline, or that are not prose, are preserved as-is.
+        if "noqa: onesentence" in line or _is_non_prose_line(line):
+            flush_paragraph()
+            output.append(line.rstrip())
+            continue
+        paragraph.append(line)
+    flush_paragraph()
 
-    # If we have no dest path provided, we will overwrite the original file
+    corrected = "\n".join(output)
+    if trailing_newline or corrected:
+        corrected += "\n"
+
     if dest_path is None:
         dest_path = file_path
-
-    # Write the corrected content back to the file
     with open(dest_path, "w") as file:
-        for corrected_line in corrected_lines:
-            file.write(corrected_line + "\n")
+        file.write(corrected)
 
-    return all_single_sentences
+    return corrected == original
