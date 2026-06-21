@@ -51,6 +51,7 @@ def test_cli_check_file(tmp_path, file_path, expected_returncode):
     ("tests/data/2_true_neg.md", None, 0),
     ("tests/data/3_true_pos.rst", "tests/data/3_true_pos_fixed.rst", 1),
     ("tests/data/4_true_neg.rst", None, 0),
+    ("tests/data/6_soft_wrapped.md", "tests/data/6_soft_wrapped_fixed.md", 1),
 ])
 def test_cli_fix_file(tmp_path, file_path, fixed_path, expected_returncode):
     """

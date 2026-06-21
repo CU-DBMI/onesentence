@@ -2,6 +2,8 @@
 Tests for onesentence.utils
 """
 
+from pathlib import Path
+
 import pytest
 from onesentence.analyze import is_single_sentence, check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
 
@@ -86,6 +88,37 @@ def test_headings_and_tables_are_not_flagged_but_prose_is(tmp_path):
     file_path.write_text(content)
     # Only the genuine prose violation should fail the check.
     assert check_file_for_one_sentence_per_line(str(file_path)) is False
+
+
+def test_fix_reflows_soft_wrapped_paragraphs(tmp_path):
+    """
+    Regression test for the Code-of-Conduct fragment behavior: soft-wrapped
+    prose paragraphs must be joined and re-segmented to exactly one sentence per
+    line, while headings, link reference definitions, and intentional structure
+    are preserved. Fixing the result again must be a no-op (idempotent).
+    """
+    source = Path("tests/data/6_soft_wrapped.md").read_text()
+    expected = Path("tests/data/6_soft_wrapped_fixed.md").read_text()
+
+    work = tmp_path / "coc.md"
+    work.write_text(source)
+
+    # The soft-wrapped source is non-compliant, so the first fix reports a change.
+    assert correct_file_for_one_sentence_per_line(str(work)) is False
+    assert work.read_text() == expected
+
+    # The fragments from the original diff must be present verbatim.
+    assert (
+        "behavior was inappropriate.\nA public apology may be requested." in expected
+    )
+    assert (
+        "**Consequence**: A warning with consequences for continued behavior.\n"
+        "No interaction with the people involved" in expected
+    )
+
+    # Running fix again changes nothing.
+    assert correct_file_for_one_sentence_per_line(str(work)) is True
+    assert work.read_text() == expected
 
 
 @pytest.mark.parametrize("file_content, expected_content, expected_returncode", [
