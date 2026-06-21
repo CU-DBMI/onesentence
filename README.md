@@ -33,16 +33,21 @@ The `onesentence` tool provides a command-line interface for checking and fixing
 #### Commands
 
 ```bash
-  onesentence check <file_path>
+  onesentence check <file_path> [<file_path> ...]
 ```
 
-This command checks if the specified file adheres to the "one sentence per line" rule. It will return a non-zero exit code if any violations are found.
+This command checks whether each given file adheres to the "one sentence per line" rule.
+One or more files may be passed (for example, the filenames pre-commit hands to a hook).
+It returns a non-zero exit code if any file has a violation.
 
 ```bash
-  onesentence fix <file_path> [<dest_path>]
+  onesentence fix <file_path> [<file_path> ...] [--output <path>]
 ```
 
-This command corrects the specified file by splitting lines with multiple sentences into separate lines. If a dest_path is provided, the corrected file will be written to that path; otherwise, the original file will be overwritten.
+This command corrects each given file by splitting lines with multiple sentences onto separate lines.
+By default every file is corrected in place, so processing many files never lets one file overwrite another.
+Pass `--output <path>` to write a single corrected file to a separate destination; this is only valid with exactly one input file.
+It returns a non-zero exit code if any file required changes.
 
 ## Pre-commit hook
 
@@ -51,10 +56,28 @@ Install this pre-commit hook into your project with a block like the following:
 ```yaml
 repos:
   - repo: https://github.com/CU-DBMI/onesentence
-    rev: v0.0.1
+    rev: v0.1.1
     hooks:
         # run checks
         - id: check
         # run checks and fixes where possible
         - id: fix
+```
+
+### Using onesentence with a Markdown formatter
+
+If you also run a Markdown formatter such as
+[`mdformat`](https://github.com/executablebooks/mdformat), configure it to
+preserve existing line breaks so it does not undo the one-sentence-per-line
+splitting.
+For `mdformat` this means using `--wrap=keep` (the default), and notably **not**
+`--wrap=no` or a fixed wrap width, either of which would rejoin sentences onto a
+single line.
+
+```yaml
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+        - id: mdformat
+          args: ["--wrap=keep"]
 ```

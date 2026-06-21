@@ -25,11 +25,16 @@ jobs:
       # run pre-commit ci lite for automated fixes
       - uses: pre-commit-ci/lite-action@v1.1.0
         if: ${{ !cancelled() }}
-      # Test that the hooks from `pre-commit-hooks.yaml`
-      # are working as expected.
+      # Test that the hooks from `pre-commit-hooks.yaml` are working as
+      # expected by running the check hook against known-compliant fixtures.
+      # The non-compliant fixtures under tests/data are intentional violations
+      # and are exercised through pre-commit and prek by the pytest suite.
       - name: run local hook
         run: |
-          pre-commit try-repo . --all
+          pre-commit try-repo . check --files \
+            tests/data/2_true_neg.md \
+            tests/data/4_true_neg.rst \
+            tests/data/5_policy_compliant.md
   run_tests:
     strategy:
       matrix:
