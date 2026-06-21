@@ -27,7 +27,7 @@ scripts.onesentence = "onesentence.cli:trigger"
 dev = [
   "coverage>=7.6.12",
   "mdformat>=0.7.22",
-  "pre-commit>=4.0.0",
+  "pre-commit>=4",
   "prek>=0.4.5",
   "pytest>=8.3.5",
 ]
