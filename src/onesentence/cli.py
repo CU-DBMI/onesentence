@@ -2,42 +2,83 @@
 CLI for onesentence
 """
 
-import fire
 import sys
 from typing import Optional
-from onesentence.analyze import check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
+
+import fire
+
+from onesentence.analyze import (
+    check_file_for_one_sentence_per_line,
+    correct_file_for_one_sentence_per_line,
+)
+
 
 class OneSentenceCheckCLI:
-    def check(self, file_path: str) -> bool:
+    def check(self, *file_paths: str) -> None:
         """
-        Check if each line in the given file contains only one sentence.
+        Check that each line in the given file(s) contains only one sentence.
+
+        Accepts one or more file paths (for example, the filenames pre-commit
+        passes to a hook). Every file is checked independently.
 
         Args:
-            file_path (str): The path to the file to check.
+            *file_paths (str): One or more paths to files to check.
 
-        Returns:
-            bool: True if all lines contain only one sentence, False otherwise.
+        Exits:
+            0 if every file is compliant, 1 if any file has a violation,
+            2 on usage errors (no files provided).
         """
-        result = check_file_for_one_sentence_per_line(file_path= file_path)
-        if result:
-            sys.exit(0)
-        else:
-            sys.exit(1)
-    def fix(self, file_path: str, dest_path: Optional[str]=None) -> bool:
+        if not file_paths:
+            print("error: no input files provided", file=sys.stderr)
+            sys.exit(2)
+
+        all_single_sentences = True
+        for file_path in file_paths:
+            if not check_file_for_one_sentence_per_line(file_path=file_path):
+                all_single_sentences = False
+
+        sys.exit(0 if all_single_sentences else 1)
+
+    def fix(self, *file_paths: str, output: Optional[str] = None) -> None:
         """
-        Fix each line in the given file contains more than one sentence.
+        Fix lines that contain more than one sentence in the given file(s).
+
+        Accepts one or more file paths. By default each file is corrected in
+        place, so processing many files never lets one file overwrite another.
+        Pass ``--output`` to write a single corrected file to a separate path;
+        this is only valid with exactly one input file.
 
         Args:
-            file_path (str): The path to the file to check.
+            *file_paths (str): One or more paths to files to fix.
+            output (str): Optional destination path for the corrected file.
+                Only valid when exactly one input file is given.
 
-        Returns:
-            bool: True if all lines contain only one sentence, False otherwise.
+        Exits:
+            0 if every file was already compliant, 1 if any file required
+            changes, 2 on usage errors (no files, or ``--output`` with more
+            than one input file).
         """
-        result = correct_file_for_one_sentence_per_line(file_path=file_path, dest_path=dest_path)
-        if result:
-            sys.exit(0)
-        else:
-            sys.exit(1)
+        if not file_paths:
+            print("error: no input files provided", file=sys.stderr)
+            sys.exit(2)
+
+        if output is not None and len(file_paths) != 1:
+            print(
+                "error: --output requires exactly one input file "
+                f"(received {len(file_paths)})",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+        all_single_sentences = True
+        for file_path in file_paths:
+            if not correct_file_for_one_sentence_per_line(
+                file_path=file_path, dest_path=output
+            ):
+                all_single_sentences = False
+
+        sys.exit(0 if all_single_sentences else 1)
+
 
 def trigger():
     """
