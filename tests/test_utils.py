@@ -20,8 +20,8 @@ from onesentence.analyze import is_single_sentence, check_file_for_one_sentence_
     ("The pattern `Hello. World` matches two words.", True),
     ("Run `echo hello. world` in your shell.", True),
     ("The string `foo. Bar baz` is invalid.", True),
-    ("> This is a blockquote. It has two sentences.", True),
-    ("  continuation of a list item. With two sentences.", True),
+    ("> This is a blockquote. It has two sentences.", False),
+    ("  continuation of a list item. With two sentences.", False),
     # Headings are structural and exempt, including numbered headings that pysbd
     # would otherwise split on (e.g. "### 1. Foo" -> ["### 1. ", "Foo"]).
     ("# Heading", True),
@@ -120,6 +120,20 @@ def test_fix_reflows_soft_wrapped_paragraphs(tmp_path):
     assert correct_file_for_one_sentence_per_line(str(work)) is True
     assert work.read_text() == expected
 
+
+def test_markdown_regression_fixture_converges(tmp_path):
+    """Badges and structure survive while prose, emoji, lists, and quotes reflow."""
+    source = Path("tests/data/7_structured.md").read_text()
+    expected = Path("tests/data/7_structured_fixed.md").read_text()
+    work = tmp_path / "structured.md"
+    work.write_text(source)
+
+    assert check_file_for_one_sentence_per_line(str(work)) is False
+    assert correct_file_for_one_sentence_per_line(str(work)) is False
+    assert work.read_text() == expected
+    assert check_file_for_one_sentence_per_line(str(work)) is True
+    assert correct_file_for_one_sentence_per_line(str(work)) is True
+    assert work.read_text() == expected
 
 @pytest.mark.parametrize("file_content, expected_content, expected_returncode", [
     (

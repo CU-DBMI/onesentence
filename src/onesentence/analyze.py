@@ -3,6 +3,7 @@ Module for checking for one sentence per line and related.
 """
 
 import re
+import unicodedata
 from typing import List, Optional
 
 import pysbd
@@ -25,6 +26,17 @@ _TABLE_ROW_RE = re.compile(r"^\|")  # "| cell | cell |"
 _TABLE_SEPARATOR_RE = re.compile(
     r"^\|?[\s:|-]*\|[\s:|-]*$"
 )  # "|---|:--:|" style separators
+_IMAGE_RE = r"!\[[^\]]*\]\([^\n)]*\)"
+_BADGE_LINE_RE = re.compile(
+    rf"^(?:(?:{_IMAGE_RE}|\[\s*{_IMAGE_RE}\s*\]\([^\n)]*\))\s*)+$"
+)
+_LIST_ITEM_RE = re.compile(r"^(\s*)([-+*]|\d+[.)])(\s+)(.*)$")
+_BLOCKQUOTE_RE = re.compile(r"^(\s*(?:>\s*)+)(.*)$")
+_HTML_BLOCK_START_RE = re.compile(r"^<([A-Za-z][\w-]*)\b[^>]*>")
+_HTML_VOID_TAGS = {
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+    "meta", "param", "source", "track", "wbr",
+}
 
 # Prose constructs whose internal punctuation must not be read as sentence
 # boundaries; each is replaced with a single opaque token before segmentation.
@@ -67,6 +79,7 @@ def _is_structural_line(stripped: str) -> bool:
         or _LINK_DEFINITION_RE.match(stripped)
         or _TABLE_ROW_RE.match(stripped)
         or _TABLE_SEPARATOR_RE.match(stripped)
+        or _BADGE_LINE_RE.fullmatch(stripped)
     )
 
 
@@ -124,15 +137,14 @@ def is_single_sentence(line: str, ignore_block: bool) -> bool:
     if _is_structural_line(stripped):
         return True
 
-    # Allow multiple sentences in list items, their continuations, and blockquotes
-    if re.match(r"^\s*[-*+]\s+", line):  # Unordered list item
-        return True
-    if re.match(r"^\s*\d+\.\s+", line):  # Ordered list item
-        return True
-    if re.match(r"^\s+\S", line):  # Indented continuation of a list item
-        return True
-    if re.match(r"^>\s*", line):  # Blockquote
-        return True
+    # Check prose after its structural prefix. Continuation lines require
+    # surrounding list context and are handled by the file-level checker.
+    list_match = _LIST_ITEM_RE.match(line)
+    if list_match:
+        stripped = list_match.group(4).strip()
+    quote_match = _BLOCKQUOTE_RE.match(line)
+    if quote_match:
+        stripped = quote_match.group(2).strip()
 
     # Mask inline code, links, and URLs so their punctuation does not trigger
     # false sentence breaks, then count the remaining sentences.
@@ -150,24 +162,23 @@ def check_file_for_one_sentence_per_line(file_path: str) -> bool:
     Returns:
         bool: True if all lines contain only one sentence, False otherwise.
     """
-    all_single_sentences = True
-    ignore_block = False
-    in_code_block = False
     with open(file_path, "r") as file:
-        for line_number, line in enumerate(file, start=1):
-            if line.strip().startswith("```"):
-                in_code_block = not in_code_block
-                continue
-            if "noqa: onesentence-start" in line:
-                ignore_block = True
-                continue
-            if "noqa: onesentence-end" in line:
-                ignore_block = False
-                continue
-            if not is_single_sentence(line.rstrip("\n"), ignore_block or in_code_block):
-                print(f"Failed: line {line_number}: {line.strip()}")
-                all_single_sentences = False
-    return all_single_sentences
+        original = file.read()
+    corrected = _correct_content(original)
+    if corrected == original:
+        return True
+
+    original_lines = original.splitlines()
+    corrected_lines = corrected.splitlines()
+    for line_number, (before, after) in enumerate(
+        zip(original_lines, corrected_lines), start=1
+    ):
+        if before != after:
+            print(f"Failed: line {line_number}: {before.strip()}")
+            break
+    else:
+        print("Failed: file requires one-sentence-per-line reflow")
+    return False
 
 
 def _mask_for_segmentation(text: str) -> str:
@@ -229,7 +240,45 @@ def _segment_markdown(text: str) -> List[str]:
     remainder = text[position:].strip()
     if remainder:
         sentences.append(remainder)
-    return sentences or [text.strip()]
+    merged: List[str] = []
+    for sentence in sentences:
+        if merged:
+            leading_symbols, remaining = _take_leading_symbols(sentence)
+            if leading_symbols and remaining:
+                merged[-1] = f"{merged[-1]} {leading_symbols}"
+                sentence = remaining
+        if merged and _is_symbol_only(sentence):
+            merged[-1] = f"{merged[-1]} {sentence}"
+        else:
+            merged.append(sentence)
+    return merged or [text.strip()]
+
+
+def _is_symbol_only(text: str) -> bool:
+    """Return True for emoji/decorative-symbol text with no letters or digits."""
+    characters = [character for character in text if not character.isspace()]
+    return bool(characters) and any(
+        unicodedata.category(character).startswith("S") for character in characters
+    ) and all(
+        unicodedata.category(character)[0] in {"M", "P", "S"}
+        for character in characters
+    )
+
+
+def _take_leading_symbols(text: str) -> tuple[str, str]:
+    """Split a leading emoji/symbol run from prose that follows it."""
+    position = 0
+    saw_symbol = False
+    for character in text:
+        category = unicodedata.category(character)
+        if character.isspace() or category[0] in {"M", "P", "S"}:
+            saw_symbol = saw_symbol or category.startswith("S")
+            position += 1
+            continue
+        break
+    if not saw_symbol:
+        return "", text
+    return text[:position].strip(), text[position:].strip()
 
 
 def _line_ends_sentence(line: str) -> bool:
@@ -250,19 +299,16 @@ def _is_non_prose_line(line: str) -> bool:
     Return True for lines that must be preserved rather than reflowed.
 
     This covers headings, horizontal rules, link reference definitions, tables,
-    reST directives, list items and their indented continuations, blockquotes,
-    and block-level HTML.
+    reST directives, badge blocks, standalone symbols, indented code, and HTML.
     """
     stripped = line.strip()
     if not stripped:
         return False
     return bool(
         _is_structural_line(stripped)
-        or re.match(r"^\s*[-*+]\s+", line)  # unordered list item
-        or re.match(r"^\s*\d+\.\s+", line)  # ordered list item
         or re.match(r"^\s+\S", line)  # indented continuation / indented code
-        or re.match(r"^>\s*", line)  # blockquote
         or stripped.startswith("<")  # block-level HTML
+        or _is_symbol_only(stripped)
     )
 
 
@@ -297,31 +343,8 @@ def _reflow_paragraph(lines: List[str]) -> List[str]:
     return reflowed
 
 
-def correct_file_for_one_sentence_per_line(
-    file_path: str, dest_path: Optional[str] = None
-) -> bool:
-    """
-    Normalize a file so each prose sentence sits on its own line.
-
-    Prose paragraphs are reflowed by joining Markdown soft-wrapped lines,
-    segmenting the paragraph into sentences, and writing exactly one complete
-    sentence per line. Intentional hard breaks, lists, blockquotes, headings,
-    code blocks, tables, HTML, and ``noqa`` regions are preserved unchanged.
-
-    Args:
-        file_path (str):
-            The path to the file to check.
-        dest_path (str):
-            The path to write the file to.
-            If not provided, the original file will be overwritten.
-
-    Returns:
-        bool: True if the file was already compliant (no changes were needed),
-        False otherwise.
-    """
-    with open(file_path, "r") as file:
-        original = file.read()
-
+def _correct_content(original: str) -> str:
+    """Return the canonical one-sentence-per-line form of ``original``."""
     raw_lines = original.split("\n")
     # ``split`` leaves a trailing "" for a final newline; track and re-add it.
     trailing_newline = bool(raw_lines) and raw_lines[-1] == ""
@@ -332,56 +355,171 @@ def correct_file_for_one_sentence_per_line(
     paragraph: List[str] = []
     in_code_block = False
     ignore_block = False
+    html_tag: Optional[str] = None
 
     def flush_paragraph() -> None:
         if paragraph:
             output.extend(_reflow_paragraph(paragraph))
             paragraph.clear()
 
-    for line in raw_lines:
+    index = 0
+    while index < len(raw_lines):
+        line = raw_lines[index]
         stripped = line.strip()
         is_fence = stripped.startswith("```") or stripped.startswith("~~~")
 
+        if html_tag is not None:
+            output.append(line.rstrip())
+            if (
+                html_tag == "!--" and "-->" in stripped
+            ) or re.search(rf"</{re.escape(html_tag)}\s*>", stripped, re.IGNORECASE):
+                html_tag = None
+            index += 1
+            continue
         if in_code_block:
             output.append(line.rstrip())
             if is_fence:
                 in_code_block = False
+            index += 1
             continue
         if is_fence:
             flush_paragraph()
             in_code_block = True
             output.append(line.rstrip())
+            index += 1
             continue
         if ignore_block:
             output.append(line.rstrip())
             if "noqa: onesentence-end" in line:
                 ignore_block = False
+            index += 1
             continue
         if "noqa: onesentence-start" in line:
             flush_paragraph()
             ignore_block = True
             output.append(line.rstrip())
+            index += 1
             continue
         if "noqa: onesentence-end" in line:
             flush_paragraph()
             output.append(line.rstrip())
+            index += 1
             continue
         if stripped == "":
             flush_paragraph()
             output.append("")
+            index += 1
             continue
+
+        if stripped.startswith("<!--"):
+            flush_paragraph()
+            output.append(line.rstrip())
+            if "-->" not in stripped:
+                html_tag = "!--"
+            index += 1
+            continue
+
+        html_match = _HTML_BLOCK_START_RE.match(stripped)
+        if html_match and not stripped.startswith(("<!", "<?")):
+            flush_paragraph()
+            output.append(line.rstrip())
+            tag = html_match.group(1)
+            if (
+                tag.lower() not in _HTML_VOID_TAGS
+                and not stripped.endswith("/>")
+                and not re.search(
+                    rf"</{re.escape(tag)}\s*>", stripped, re.IGNORECASE
+                )
+            ):
+                html_tag = tag
+            index += 1
+            continue
+
+        list_match = _LIST_ITEM_RE.match(line)
+        if list_match:
+            flush_paragraph()
+            marker_prefix = "".join(list_match.group(1, 2, 3))
+            continuation_prefix = " " * len(marker_prefix)
+            contents = [list_match.group(4)]
+            index += 1
+            while index < len(raw_lines):
+                continuation = raw_lines[index]
+                if not continuation.strip():
+                    break
+                indentation = len(continuation) - len(continuation.lstrip(" "))
+                if indentation < len(continuation_prefix):
+                    break
+                # A nested list is its own structured prose block. Indentation
+                # four columns beyond the continuation prefix is indented code.
+                if _LIST_ITEM_RE.match(continuation) or indentation >= (
+                    len(continuation_prefix) + 4
+                ):
+                    break
+                contents.append(continuation[len(continuation_prefix) :])
+                index += 1
+            reflowed = _reflow_paragraph(contents)
+            if reflowed:
+                output.append(marker_prefix + reflowed[0])
+                output.extend(continuation_prefix + part for part in reflowed[1:])
+            else:
+                output.append(line.rstrip())
+            continue
+
+        quote_match = _BLOCKQUOTE_RE.match(line)
+        if quote_match:
+            flush_paragraph()
+            quote_prefix = quote_match.group(1)
+            contents = [quote_match.group(2)]
+            index += 1
+            while index < len(raw_lines):
+                next_quote = _BLOCKQUOTE_RE.match(raw_lines[index])
+                if not next_quote or next_quote.group(1) != quote_prefix:
+                    break
+                if not next_quote.group(2).strip():
+                    break
+                contents.append(next_quote.group(2))
+                index += 1
+            output.extend(quote_prefix + part for part in _reflow_paragraph(contents))
+            continue
+
         # Lines exempted inline, or that are not prose, are preserved as-is.
         if "noqa: onesentence" in line or _is_non_prose_line(line):
             flush_paragraph()
             output.append(line.rstrip())
+            index += 1
             continue
         paragraph.append(line)
+        index += 1
     flush_paragraph()
 
     corrected = "\n".join(output)
     if trailing_newline or corrected:
         corrected += "\n"
 
+    return corrected
+
+
+def correct_file_for_one_sentence_per_line(
+    file_path: str, dest_path: Optional[str] = None
+) -> bool:
+    """
+    Normalize a file so each prose sentence sits on its own line.
+
+    Prose paragraphs, list items, and blockquotes are reflowed into exactly one
+    complete sentence per line. Markdown structure, intentional hard breaks,
+    standalone symbols, code, tables, HTML, and ``noqa`` regions are preserved.
+
+    Args:
+        file_path (str): The path to the file to check.
+        dest_path (str): Optional output path; defaults to ``file_path``.
+
+    Returns:
+        bool: True if the file was already compliant, False if it changed.
+    """
+    with open(file_path, "r") as file:
+        original = file.read()
+
+    corrected = _correct_content(original)
     if dest_path is None:
         dest_path = file_path
     with open(dest_path, "w") as file:

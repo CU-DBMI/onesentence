@@ -25,14 +25,16 @@ This is the second sentence under a subheading. And another sentence we should i
 <!-- noqa: onesentence-end -->
 
 - This is a single sentence in a list item.
-- This is the first sentence in a list item. This is the second sentence in a list item.
+- This is the first sentence in a list item.
+  This is the second sentence in a list item.
 
 > This is a single sentence in a blockquote.
 > This is the first sentence in a blockquote.
 > This is the second sentence in a blockquote.
 
 1. This is a single sentence in an ordered list.
-1. This is the first sentence in an ordered list. This is the second sentence in an ordered list.
+1. This is the first sentence in an ordered list.
+   This is the second sentence in an ordered list.
 
 **Bold text with a single sentence.**
 __Bold text with a single sentence.__
