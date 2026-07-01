@@ -28,7 +28,7 @@ repos:
               .*\.lock
           )$
 -   repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.18
+    rev: 1.0.0
     hooks:
     -   id: mdformat
         additional_dependencies:
