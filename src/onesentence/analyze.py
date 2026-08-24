@@ -212,6 +212,90 @@ def _mask_for_segmentation(text: str) -> str:
     return _EMPHASIS_RE.sub("x", text)
 
 
+def _emphasis_runs(text: str):
+    """
+    Yield ``(start, end, char, length)`` for each maximal run of emphasis markers.
+
+    Args:
+        text (str): The text to scan.
+
+    Yields:
+        tuple: ``(start, end, char, length)`` for each run of ``*``, ``_``, or
+        ``~`` characters.
+    """
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char in "*_~":
+            start = index
+            while index < len(text) and text[index] == char:
+                index += 1
+            yield (start, index, char, index - start)
+        else:
+            index += 1
+
+
+def _trailing_open_emphasis(text: str) -> List[tuple]:
+    """
+    Return the unmatched opening emphasis runs left open at the end of ``text``.
+
+    Each entry is ``(char, length)``.  Closers match the most recent opener of
+    the same character and length; everything that cannot be closed remains.
+
+    Args:
+        text (str): The text to analyze.
+
+    Returns:
+        list[tuple]: Unmatched ``(char, length)`` openers, in open order.
+    """
+    stack: List[tuple] = []
+    for _, _, char, length in _emphasis_runs(text):
+        for position in range(len(stack) - 1, -1, -1):
+            if stack[position][0] == char and stack[position][1] == length:
+                del stack[position]
+                break
+        else:
+            stack.append((char, length))
+    return stack
+
+
+def _rebalance_split_emphasis(sentences: List[str]) -> List[str]:
+    """
+    Rejoin emphasis pairs that the segmenter split at a sentence boundary.
+
+    pysbd places a sentence boundary between terminal punctuation and a
+    closing emphasis run that directly follows it (``"**Why?**"`` segments as
+    ``["**Why?", "**"]``), leaving the closing markers dangling at the start of
+    the next segment.  When such a leading run closes an opener that is still
+    unmatched at the end of the previous sentence, move it back so the pair
+    stays intact on the sentence it belongs to.
+
+    Args:
+        sentences (list[str]): The segmented sentences.
+
+    Returns:
+        list[str]: The sentences with split emphasis pairs rejoined.
+    """
+    if len(sentences) < 2:
+        return sentences
+    result = list(sentences)
+    previous_open = _trailing_open_emphasis(result[0])
+    for index in range(1, len(result)):
+        sentence = result[index]
+        runs = list(_emphasis_runs(sentence))
+        if runs and runs[0][0] == 0:
+            _, end, char, length = runs[0]
+            for position in range(len(previous_open) - 1, -1, -1):
+                open_char, open_length = previous_open[position]
+                if open_char == char and open_length == length:
+                    result[index - 1] += sentence[:end]
+                    result[index] = sentence[end:].lstrip()
+                    del previous_open[position]
+                    break
+        previous_open = _trailing_open_emphasis(result[index])
+    return [sentence for sentence in result if sentence]
+
+
 def _segment_markdown(text: str) -> List[str]:
     """
     Split a block of Markdown/reST prose into sentences, preserving markup.
@@ -240,6 +324,8 @@ def _segment_markdown(text: str) -> List[str]:
     remainder = text[position:].strip()
     if remainder:
         sentences.append(remainder)
+    # Rejoin emphasis pairs split at sentence boundaries (e.g. "**Why?**").
+    sentences = _rebalance_split_emphasis(sentences)
     merged: List[str] = []
     for sentence in sentences:
         if merged:
@@ -257,7 +343,11 @@ def _segment_markdown(text: str) -> List[str]:
 def _is_symbol_only(text: str) -> bool:
     """Return True for emoji/decorative-symbol text with no letters or digits."""
     characters = [character for character in text if not character.isspace()]
-    return bool(characters) and any(
+    # Emphasis markers (*, _, ~) are not decorative symbols; a run of them is
+    # inline markup, handled by the emphasis rebalance rather than folded here.
+    if not characters or any(character in "*_~" for character in characters):
+        return False
+    return any(
         unicodedata.category(character).startswith("S") for character in characters
     ) and all(
         unicodedata.category(character)[0] in {"M", "P", "S"}
@@ -270,6 +360,11 @@ def _take_leading_symbols(text: str) -> tuple[str, str]:
     position = 0
     saw_symbol = False
     for character in text:
+        # Emphasis markers (*, _, ~) look symbol-like to unicodedata (``~`` is a
+        # math symbol) but are inline emphasis, not decorative symbols; stop so
+        # they stay with their sentence instead of being pulled onto the prior one.
+        if character in "*_~":
+            break
         category = unicodedata.category(character)
         if character.isspace() or category[0] in {"M", "P", "S"}:
             saw_symbol = saw_symbol or category.startswith("S")

@@ -5,7 +5,12 @@ Tests for onesentence.utils
 from pathlib import Path
 
 import pytest
-from onesentence.analyze import is_single_sentence, check_file_for_one_sentence_per_line, correct_file_for_one_sentence_per_line
+from onesentence.analyze import (
+    _correct_content,
+    is_single_sentence,
+    check_file_for_one_sentence_per_line,
+    correct_file_for_one_sentence_per_line,
+)
 
 @pytest.mark.parametrize("line, expected", [
     ("This is a single sentence.", True),
@@ -44,6 +49,10 @@ from onesentence.analyze import is_single_sentence, check_file_for_one_sentence_
     # ...but a genuine sentence break after a URL/link is still detected.
     ("See https://example.com/a. Then continue here.", False),
     ("Read [the docs](https://example.com/y). Then proceed onward.", False),
+    # Emphasis wrapped around a sentence is not a sentence break of its own.
+    ("**What is the meaning?**", True),
+    ("This is a **bold question?** line.", False),  # "?" still ends a sentence
+    ("**Bold one. Bold two.**", False),
 ])
 def test_is_single_sentence(line, expected):
     assert is_single_sentence(line, ignore_block=False) == expected
@@ -176,3 +185,48 @@ def test_correct_file_for_one_sentence_per_line(tmp_path, file_content, expected
     print(expected_content)
     assert corrected_content == expected_content
     assert result == expected_returncode
+
+
+@pytest.mark.parametrize("content, expected", [
+    # A sentence wrapped in bold right up to the "?" must not have its closing
+    # emphasis split off onto its own line (regression for the pysbd quirk where
+    # "?**" segments as ["...?", "**"]).
+    (
+        "One sentence. **Why does this happen?**\n",
+        "One sentence.\n**Why does this happen?**\n",
+    ),
+    (
+        "Lead in text. **What is the meaning?** Then more text follows.\n",
+        "Lead in text.\n**What is the meaning?**\nThen more text follows.\n",
+    ),
+    (
+        "Plain sentence. Then a **bold question?** here.\n",
+        "Plain sentence.\nThen a **bold question?**\nhere.\n",
+    ),
+    # Italic and strikethrough variants behave the same way.
+    (
+        "Lead in. *Why does this happen?* Then more.\n",
+        "Lead in.\n*Why does this happen?*\nThen more.\n",
+    ),
+    (
+        "Lead in. ~~Why does this happen?~~ Then more.\n",
+        "Lead in.\n~~Why does this happen?~~\nThen more.\n",
+    ),
+    # A multi-sentence bold span is still split at the inner sentence boundary,
+    # with the opening and closing emphasis kept on their own sentences.
+    (
+        "**Bold one. Bold two.** Then a third.\n",
+        "**Bold one.\nBold two.** Then a third.\n",
+    ),
+    # Emphasis that opens a sentence (not closing terminal punctuation) is left
+    # in place rather than pulled onto the previous line.
+    (
+        "First sentence. **bold** text.\n",
+        "First sentence.\n**bold** text.\n",
+    ),
+])
+def test_bold_question_not_mis_split(content, expected):
+    """Closing emphasis after terminal punctuation stays on its sentence."""
+    assert _correct_content(content) == expected
+    # The corrected form must be idempotent.
+    assert _correct_content(expected) == expected
