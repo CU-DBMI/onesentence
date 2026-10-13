@@ -38,7 +38,7 @@ jobs:
   run_tests:
     strategy:
       matrix:
-        python_version: ["3.11", "3.12", "3.13"]
+        python_version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
         os: [ubuntu-22.04, macos-14]
     runs-on: ${{ matrix.os }}
     env:
@@ -53,4 +53,11 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v10.2.0
       - name: Run pytest
-        run: uv run --frozen pytest
+        run: uv run --frozen --python "${{ matrix.python_version }}" pytest
+      - name: Check local hook
+        run: |
+          uv run --frozen --python "${{ matrix.python_version }}" \
+            pre-commit try-repo . check --files \
+            tests/data/2_true_neg.md \
+            tests/data/4_true_neg.rst \
+            tests/data/5_policy_compliant.md
